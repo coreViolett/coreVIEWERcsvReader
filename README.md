@@ -9,8 +9,8 @@
 
 ## Requirements
 
-- Python 3.13 (the project was developed with Python 3.13)
-- Optional: Poetry for dependency and environment management
+- Python 3.9 to 3.10 tested 
+- Poetry for dependency and environment management
 
 ## example usage
 ```python

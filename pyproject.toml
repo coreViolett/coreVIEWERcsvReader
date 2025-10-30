@@ -11,14 +11,18 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Arthur Buchta" }]
-dependencies = ["pandas>=2.0", "flake8 (>=7.3.0,<8.0.0)", "pytest (>=8.4.2,<9.0.0)"]
+dependencies = [
+  "pandas>=2.0",
+  "flake8 (>=7.3.0,<8.0.0)",
+  "pytest (>=8.4.2,<9.0.0)",
+]
 
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering",
-  "Topic :: Utilities"
+  "Topic :: Utilities",
 ]
 
 [project.urls]
@@ -34,6 +38,21 @@ packages = ["src/coreviewercsvreader"]
 [tool.hatch.build.targets.sdist]
 include = ["src", "README.md", "LICENSE", "pyproject.toml"]
 
-[tool.poetry.group.dev.dependencies]
-flake8 = "^7.3.0"
+[tool.poetry]
+name = "coreviewercsvreader"
+version = "0.2.2"
+description = "Read coreSensing CSV files into pandas DataFrames"
+readme = "README.md"
+authors = ["Arthur Buchta"]
+license = "MIT"
+packages = [
+  { include = "coreviewercsvreader", from = "src" }
+]
 
+[tool.poetry.dependencies]
+python = ">=3.9"
+pandas = ">=2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.2"
+flake8 = "^7.3.0"

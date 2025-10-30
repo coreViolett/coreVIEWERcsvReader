@@ -46,7 +46,6 @@ def test_read_eu_csv_parses_values() -> None:
     assert df.iloc[4, 4] == pytest.approx(4.390976285177658, rel=0, abs=1e-15)
 
 
-
 def test_read_csv_parses_values() -> None:
     df = read_coresensing_csv(_data_path(name="1-01107_2025-10-24_16-14-56.csv"))
 

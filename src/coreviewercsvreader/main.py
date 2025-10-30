@@ -14,9 +14,19 @@ def main(data_dir: str = "data") -> pd.DataFrame:
 
 
 def cli() -> None:
-    parser = argparse.ArgumentParser(description="Read coreSensing CSV into a pandas DataFrame.")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Read coreSensing CSV into a pandas DataFrame."
+        )
+    )
     parser.add_argument("input", nargs="?", default="data", help="CSV‑File")
-    parser.add_argument("--encoding", default="utf-8", help="Data‑Encoding (Default: utf‑8)")
+    parser.add_argument(
+        "--encoding",
+        default="utf-8",
+        help=(
+            "Data‑Encoding (Default: utf‑8)"
+        ),
+    )
     args = parser.parse_args()
 
     p = Path(args.input)

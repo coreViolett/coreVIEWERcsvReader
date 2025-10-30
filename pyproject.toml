@@ -33,3 +33,7 @@ packages = ["src/coreviewercsvreader"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src", "README.md", "LICENSE", "pyproject.toml"]
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^7.3.0"
+

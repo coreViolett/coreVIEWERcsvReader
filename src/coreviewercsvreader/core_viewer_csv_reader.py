@@ -15,7 +15,10 @@ def _drop_empty_last_column(df: pd.DataFrame) -> pd.DataFrame:
     last = df.columns[-1]
     col = df[last]
     all_na = col.isna().all()
-    all_empty = col.dtype == object and col.fillna("").astype(str).str.strip().eq("").all()
+    all_empty = (
+        col.dtype == object
+        and col.fillna("").astype(str).str.strip().eq("").all()
+    )
     return df.iloc[:, :-1] if (all_na or all_empty) else df
 
 
@@ -75,24 +78,37 @@ def _fix_csv_file(
     desc_idx = marker_idx + 1
 
     changed = False
-    with open(p, "r", encoding=encoding, errors="replace", newline="") as src, \
-         tempfile.NamedTemporaryFile("w", delete=False, encoding=encoding, newline="") as dst:
-        tmp_name = dst.name
-        for i, line in enumerate(src):
-            if i == desc_idx:
-                # keep original EOL
-                if line.endswith("\r\n"):
-                    eol = "\r\n"; body = line[:-2]
-                elif line.endswith("\n"):
-                    eol = "\n"; body = line[:-1]
-                elif line.endswith("\r"):
-                    eol = "\r"; body = line[:-1]
-                else:
-                    eol = ""; body = line
-                if not body.endswith(sep_char):
-                    line = body + sep_char + eol
-                    changed = True
-            dst.write(line)
+    # use nested with to avoid long lines
+    with open(
+        p,
+        "r",
+        encoding=encoding,
+        errors="replace",
+        newline="",
+    ) as src:
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, encoding=encoding, newline=""
+        ) as dst:
+            tmp_name = dst.name
+            for i, line in enumerate(src):
+                if i == desc_idx:
+                    # keep original EOL
+                    if line.endswith("\r\n"):
+                        eol = "\r\n"
+                        body = line[:-2]
+                    elif line.endswith("\n"):
+                        eol = "\n"
+                        body = line[:-1]
+                    elif line.endswith("\r"):
+                        eol = "\r"
+                        body = line[:-1]
+                    else:
+                        eol = ""
+                        body = line
+                    if not body.endswith(sep_char):
+                        line = body + sep_char + eol
+                        changed = True
+                dst.write(line)
 
     if changed:
         os.replace(tmp_name, p)

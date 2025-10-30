@@ -9,18 +9,14 @@ __all__ = ["read_coresensing_csv", "read_many", "to_parquet"]
 
 
 def _drop_empty_last_column(df: pd.DataFrame) -> pd.DataFrame:
-    # drop any columns that are entirely NaN or empty strings
+    # drop last column if all NaN or empty strings
     if df.shape[1] == 0:
         return df
-    mask_all_na = df.isna().all(axis=0)
-    mask_all_empty_str = pd.Series(False, index=df.columns)
-    # only evaluate empties on object-like columns to avoid costly casts
-    obj_cols = [c for c in df.columns if df[c].dtype == object]
-    if obj_cols:
-        empties = df[obj_cols].apply(lambda s: s.fillna("").astype(str).str.strip().eq("").all(), axis=0)
-        mask_all_empty_str.loc[obj_cols] = empties
-    keep = ~(mask_all_na | mask_all_empty_str)
-    return df.loc[:, keep]
+    last = df.columns[-1]
+    col = df[last]
+    all_na = col.isna().all()
+    all_empty = col.dtype == object and col.fillna("").astype(str).str.strip().eq("").all()
+    return df.iloc[:, :-1] if (all_na or all_empty) else df
 
 
 def _get_line_containing(

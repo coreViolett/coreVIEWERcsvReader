@@ -5,13 +5,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coreviewercsvreader"
-version = "0.2.1"
+version = "0.2.2"
 description = "Read coreSensing CSV files into pandas DataFrames"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "Arthur Buchta" }]
-dependencies = ["pandas>=2.0", "flake8 (>=7.3.0,<8.0.0)"]
+dependencies = ["pandas>=2.0", "flake8 (>=7.3.0,<8.0.0)", "pytest (>=8.4.2,<9.0.0)"]
 
 classifiers = [
   "Programming Language :: Python :: 3",

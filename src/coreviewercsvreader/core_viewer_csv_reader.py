@@ -9,14 +9,18 @@ __all__ = ["read_coresensing_csv", "read_many", "to_parquet"]
 
 
 def _drop_empty_last_column(df: pd.DataFrame) -> pd.DataFrame:
-    # drop last column if all NaN or empty strings
+    # drop any columns that are entirely NaN or empty strings
     if df.shape[1] == 0:
         return df
-    last = df.columns[-1]
-    col = df[last]
-    all_na = col.isna().all()
-    all_empty = col.dtype == object and col.fillna("").astype(str).str.strip().eq("").all()
-    return df.iloc[:, :-1] if (all_na or all_empty) else df
+    mask_all_na = df.isna().all(axis=0)
+    mask_all_empty_str = pd.Series(False, index=df.columns)
+    # only evaluate empties on object-like columns to avoid costly casts
+    obj_cols = [c for c in df.columns if df[c].dtype == object]
+    if obj_cols:
+        empties = df[obj_cols].apply(lambda s: s.fillna("").astype(str).str.strip().eq("").all(), axis=0)
+        mask_all_empty_str.loc[obj_cols] = empties
+    keep = ~(mask_all_na | mask_all_empty_str)
+    return df.loc[:, keep]
 
 
 def _get_line_containing(
@@ -119,7 +123,7 @@ def read_coresensing_csv(
     # detect sep from header
     detected_sep = _detect_separator(path, encoding=encoding)
     use_sep = detected_sep if sep is None else sep
-
+    decimal = "," if use_sep == ";" else "."
     # fix header line to end with separator if missing
     _fix_csv_file(path, "Sensordata", encoding=encoding, sep_char=use_sep)
 
@@ -129,6 +133,7 @@ def read_coresensing_csv(
     df = pd.read_csv(
         path,
         sep=use_sep,
+        decimal=decimal,
         header=0,
         engine="python",
         skip_blank_lines=True,

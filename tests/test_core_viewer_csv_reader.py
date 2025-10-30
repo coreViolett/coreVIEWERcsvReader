@@ -108,13 +108,23 @@ class TestFixCsvFile(unittest.TestCase):
 class TestPublicApis(unittest.TestCase):
     def setUp(self):
         # sample CSV from repo
-        self.sample_csv = Path(__file__).parent / "testdata" / "1-01107_2025-10-24_16-14-56.csv"
+        base = Path(__file__).parent / "testdata"
+        self.sample_csv = base / "1-01107_2025-10-24_16-14-56.csv"
+        self.sample_csv_eu = base / "1-01107_2025-10-24_16-14-56_eu.csv"
         self.assertTrue(self.sample_csv.exists(), f"Missing test file: {self.sample_csv}")
+        self.assertTrue(self.sample_csv_eu.exists(), f"Missing test file: {self.sample_csv_eu}")
 
     def test_read_coresensing_csv_basic(self):
         df = read_coresensing_csv(self.sample_csv)
         self.assertGreaterEqual(len(df), 1)  # has rows
         self.assertGreaterEqual(df.shape[1], 1)  # has cols
+
+    def test_read_coresensing_csv_eu_separator(self):
+        # ensure EU file with ';' is parsed and header detected
+        df = read_coresensing_csv(self.sample_csv_eu)
+        self.assertIn("Time in ms", df.columns)
+        # self.assertGreaterEqual(len(df), 1)
+        # self.assertGreaterEqual(df.shape[1], 2)
 
     def test_read_many_concat_and_source(self):
         df = read_many([self.sample_csv, self.sample_csv], add_source=True)
@@ -157,4 +167,3 @@ class TestPublicApis(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -1,17 +1,15 @@
-# python
 from __future__ import annotations
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Union
+from typing import Iterable, Sequence, Union, List, Optional
 import os
 import tempfile
 import pandas as pd
 
 __all__ = ["read_coresensing_csv", "read_many", "to_parquet"]
 
-DEFAULT_NAMES: Optional[List[str]] = None  # z.\ B. ["seq", "c1", "c2", "c3", "c4"]
-
 
 def _drop_empty_last_column(df: pd.DataFrame) -> pd.DataFrame:
+    # drop last column if all NaN or empty strings
     if df.shape[1] == 0:
         return df
     last = df.columns[-1]
@@ -27,6 +25,7 @@ def _get_line_containing(
     *,
     encoding: str = "utf-8",
 ) -> int:
+    # return first 0-based line index containing any needle, else -1
     if isinstance(needles, str):
         needles = [needles]
     needles = list(needles)
@@ -35,7 +34,26 @@ def _get_line_containing(
         for i, line in enumerate(f):
             if any(n in line for n in needles):
                 return i
-    return -1  # wichtig: -1 = nicht gefunden
+    return -1
+
+
+def _detect_separator(path: Union[str, Path], *, encoding: str = "utf-8") -> str:
+    # detect sep from header line right after 'Sensordata'
+    p = Path(path)
+    marker_idx = _get_line_containing(p, "Sensordata", encoding=encoding)
+    if marker_idx < 0:
+        return ","
+    header_idx = marker_idx + 1
+    with open(p, "r", encoding=encoding, errors="replace") as f:
+        for i, line in enumerate(f):
+            if i == header_idx:
+                # simple heuristic: prefer ';' if present, else ','
+                if "Time in ms;" in line:
+                    return ";"
+                if "Time in ms," in line:
+                    return ","
+                return ","
+    return ","
 
 
 def _fix_csv_file(
@@ -43,11 +61,12 @@ def _fix_csv_file(
     needles: Union[str, Sequence[str]] = "Sensordata",
     *,
     encoding: str = "utf-8",
+    sep_char: str = ",",
 ) -> bool:
     """
-    Fügt in der Description‑Zeile (erste Zeile nach 'Sensordata') ein Komma am Zeilenende hinzu.
-    Arbeitet streamend über eine temporäre Datei, ohne alles in den RAM zu laden.
-    Gibt True zurück, wenn eine Änderung vorgenommen wurde.
+    Ensure description/header line (after marker) ends with trailing separator.
+    Stream via temp file to avoid loading everything into memory.
+    Return True if file was modified.
     """
     p = Path(path)
     marker_idx = _get_line_containing(p, needles, encoding=encoding)
@@ -61,21 +80,17 @@ def _fix_csv_file(
         tmp_name = dst.name
         for i, line in enumerate(src):
             if i == desc_idx:
-                # EOL erkennen und beibehalten
+                # keep original EOL
                 if line.endswith("\r\n"):
-                    eol = "\r\n"
-                    body = line[:-2]
+                    eol = "\r\n"; body = line[:-2]
                 elif line.endswith("\n"):
-                    eol = "\n"
-                    body = line[:-1]
+                    eol = "\n"; body = line[:-1]
                 elif line.endswith("\r"):
-                    eol = "\r"
-                    body = line[:-1]
+                    eol = "\r"; body = line[:-1]
                 else:
-                    eol = ""
-                    body = line
-                if not body.endswith(","):
-                    line = body + "," + eol
+                    eol = ""; body = line
+                if not body.endswith(sep_char):
+                    line = body + sep_char + eol
                     changed = True
             dst.write(line)
 
@@ -89,30 +104,32 @@ def _fix_csv_file(
 def read_coresensing_csv(
     path: str | Path,
     *,
-    has_header: bool = False,
-    names: Optional[List[str]] = DEFAULT_NAMES,
-    sep: str = ",",
+    sep: Optional[str] = None,
     encoding: str = "utf-8",
 ) -> pd.DataFrame:
     """
-    Liest coreSensing‑CSV robust:
-    - kein Header optional,
-    - toleriert finales Trennzeichen (leere letzte Spalte),
-    - leitet numerische Typen bestmöglich ab.
+    Robustly read coreSensing CSVs:
+    - assumes a header row is present
+    - detects separator from header after 'Sensordata' if not provided
+    - tolerates trailing delimiter (empty last column)
+    - best-effort numeric casting
     """
     path = Path(path)
 
-    # Optional: Datei vor dem Lesen korrigieren (Komma in Description‑Zeile anhängen)
-    _fix_csv_file(path, "Sensordata", encoding=encoding)
+    # detect sep from header
+    detected_sep = _detect_separator(path, encoding=encoding)
+    use_sep = detected_sep if sep is None else sep
 
-    header = 0 if has_header else None
+    # fix header line to end with separator if missing
+    _fix_csv_file(path, "Sensordata", encoding=encoding, sep_char=use_sep)
+
     marker_idx = _get_line_containing(path, "Sensordata", encoding=encoding)
     skiprows = (marker_idx + 1) if marker_idx >= 0 else None
 
     df = pd.read_csv(
         path,
-        sep=sep,
-        header=header,
+        sep=use_sep,
+        header=0,
         engine="python",
         skip_blank_lines=True,
         on_bad_lines="warn",
@@ -122,14 +139,13 @@ def read_coresensing_csv(
 
     df = _drop_empty_last_column(df)
 
-    if header is None:
-        if names and len(names) == df.shape[1]:
-            df.columns = names
-        elif df.columns.dtype != object:
-            df.columns = [f"col_{i}" for i in range(df.shape[1])]
-
+    # best-effort numeric conversion: convert if fully numeric, else keep
     for c in df.columns:
-        df[c] = pd.to_numeric(df[c], errors="ignore")
+        try:
+            converted = pd.to_numeric(df[c])
+            df[c] = converted
+        except Exception:
+            pass
 
     return df
 
@@ -137,15 +153,14 @@ def read_coresensing_csv(
 def read_many(
     paths: Iterable[str | Path],
     *,
-    has_header: bool = False,
-    names: Optional[List[str]] = DEFAULT_NAMES,
-    sep: str = ",",
+    sep: Optional[str] = None,
     encoding: str = "utf-8",
     add_source: bool = True,
 ) -> pd.DataFrame:
+    # read each file, optionally add __source__, then concat
     frames: List[pd.DataFrame] = []
     for p in paths:
-        df = read_coresensing_csv(p, has_header=has_header, names=names, sep=sep, encoding=encoding)
+        df = read_coresensing_csv(p, sep=sep, encoding=encoding)
         if add_source:
             df = df.copy()
             df["__source__"] = str(Path(p))
@@ -156,5 +171,6 @@ def read_many(
 
 
 def to_parquet(df: pd.DataFrame, out_path: str | Path) -> None:
+    # write dataframe to parquet
     Path(out_path).parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out_path, index=False)

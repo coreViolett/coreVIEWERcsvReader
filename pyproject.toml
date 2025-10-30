@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "coreviewercsvreader"
-version = "0.1.1"
+version = "0.2.1"
 description = "Read coreSensing CSV files into pandas DataFrames"
 readme = "README.md"
 requires-python = ">=3.9"

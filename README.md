@@ -9,7 +9,7 @@
 
 ## Requirements
 
-- Python 3.9 to 3.10 tested 
+- Python 3.9 to 3.13 tested 
 - Poetry for dependency and environment management
 
 ## example usage
